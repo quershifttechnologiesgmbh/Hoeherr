@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}hoeherr{% endblock %} - Football Analysis</title>
+    <link rel="stylesheet" href="{{ request.scope.get('root_path', '') }}/static/css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <a href="{{ request.scope.get('root_path', '') }}/" class="logo">hoeherr</a>
+            <span class="tagline">KI-gestutzte Fussballanalyse</span>
+        </div>
+    </nav>
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+    <footer class="footer">
+        <div class="container">
+            <p>hoeherr v0.1.0 &mdash; Drone-based Football Analysis Pipeline</p>
+        </div>
+    </footer>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

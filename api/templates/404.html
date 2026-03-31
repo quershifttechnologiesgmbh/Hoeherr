@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Not Found{% endblock %}
+{% block content %}
+<div class="error-page">
+    <h1>404</h1>
+    <p>Job nicht gefunden.</p>
+    <a href="{{ request.scope.get('root_path', '') }}/" class="btn btn-primary">Zuruck zum Dashboard</a>
+</div>
+{% endblock %}

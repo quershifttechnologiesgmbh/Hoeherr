@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% set base = request.scope.get('root_path', '') %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <h1>Video hochladen &amp; analysieren</h1>
+    <p>Lade ein Drohnen-Video hoch und erhalte Spielermetriken, Heatmaps und taktische Analysen.</p>
+</section>
+
+<section class="upload-section">
+    <form action="{{ base }}/upload" method="post" enctype="multipart/form-data" class="upload-form" id="uploadForm">
+        <div class="upload-area" id="dropZone">
+            <div class="upload-icon">&#9654;</div>
+            <p class="upload-text">Video hierher ziehen oder klicken</p>
+            <p class="upload-hint">MP4, MOV, AVI &mdash; max. 10 GB</p>
+            <input type="file" name="video" accept="video/*" id="fileInput" required>
+        </div>
+        <button type="submit" class="btn btn-primary" id="uploadBtn">Analyse starten</button>
+    </form>
+</section>
+
+{% if jobs %}
+<section class="jobs-section">
+    <h2>Analysen</h2>
+    <div class="jobs-grid">
+        {% for job_id, job in jobs.items() %}
+        <a href="{{ base }}/jobs/{{ job_id }}" class="job-card status-{{ job.status }}">
+            <div class="job-header">
+                <span class="job-id">#{{ job_id }}</span>
+                <span class="job-status badge badge-{{ job.status }}">{{ job.status }}</span>
+            </div>
+            <div class="job-filename">{{ job.filename }}</div>
+            {% if job.status == "processing" %}
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {{ job.progress }}%"></div>
+            </div>
+            {% endif %}
+            <div class="job-date">{{ job.created_at[:16] }}</div>
+        </a>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ base }}/static/js/upload.js"></script>
+{% endblock %}

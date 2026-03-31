@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% set base = request.scope.get('root_path', '') %}
+{% block title %}Job #{{ job_id }}{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+    <a href="{{ base }}/">Dashboard</a> &raquo; Job #{{ job_id }}
+</div>
+
+<section class="job-info">
+    <h1>Analyse #{{ job_id }}</h1>
+    <div class="info-grid">
+        <div class="info-item">
+            <span class="info-label">Datei</span>
+            <span class="info-value">{{ job.filename }}</span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">Status</span>
+            <span class="badge badge-{{ job.status }}">{{ job.status }}</span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">Erstellt</span>
+            <span class="info-value">{{ job.created_at[:19] }}</span>
+        </div>
+        {% if job.status == "processing" %}
+        <div class="info-item">
+            <span class="info-label">Fortschritt</span>
+            <div class="progress-bar large">
+                <div class="progress-fill" style="width: {{ job.progress }}%" id="progressBar"></div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+{% if job.status == "failed" %}
+<section class="error-section">
+    <h2>Fehler</h2>
+    <pre class="error-box">{{ job.error }}</pre>
+</section>
+{% endif %}
+
+{% if report %}
+<section class="results-section">
+    <h2>Ergebnisse</h2>
+
+    <div class="stats-overview">
+        <div class="stat-card">
+            <div class="stat-value">{{ report.match_info.duration_minutes | round(1) }}</div>
+            <div class="stat-label">Minuten</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ report.match_info.total_frames }}</div>
+            <div class="stat-label">Frames</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ report.players | length }}</div>
+            <div class="stat-label">Spieler erkannt</div>
+        </div>
+    </div>
+
+    {% if report.players %}
+    <h3>Spieler-Metriken</h3>
+    <div class="table-wrapper">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Team</th>
+                    <th>Distanz (km)</th>
+                    <th>Avg Speed (km/h)</th>
+                    <th>Max Speed (km/h)</th>
+                    <th>Sprints</th>
+                    <th>Spielzeit (min)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for player_id, player in report.players.items() %}
+                <tr>
+                    <td>{{ player_id }}</td>
+                    <td>
+                        {% if player.team == 0 %}
+                        <span class="team-badge team-a">Team A</span>
+                        {% elif player.team == 1 %}
+                        <span class="team-badge team-b">Team B</span>
+                        {% else %}
+                        <span class="team-badge">-</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ "%.2f" | format(player.physical.total_distance_km) }}</td>
+                    <td>{{ "%.1f" | format(player.physical.avg_speed_kmh) }}</td>
+                    <td>{{ "%.1f" | format(player.physical.max_speed_kmh) }}</td>
+                    <td>{{ player.physical.sprint_count }}</td>
+                    <td>{{ "%.1f" | format(player.playing_time.playing_time_minutes) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    {% if report.team_metrics %}
+    <h3>Team-Metriken</h3>
+    <div class="team-metrics-grid">
+        {% for team_id, metrics in report.team_metrics.items() %}
+        {% if team_id != "zone_control" %}
+        <div class="metric-card">
+            <h4>Team {{ "A" if team_id == "0" else "B" }}</h4>
+            {% if metrics.compactness %}
+            <p>Kompaktheit: {{ "%.0f" | format(metrics.compactness.area_m2) }} m&sup2;</p>
+            {% endif %}
+            {% if metrics.width_depth %}
+            <p>Breite: {{ "%.1f" | format(metrics.width_depth.width_m) }} m</p>
+            <p>Tiefe: {{ "%.1f" | format(metrics.width_depth.depth_m) }} m</p>
+            {% endif %}
+        </div>
+        {% endif %}
+        {% endfor %}
+
+        {% if report.team_metrics.zone_control %}
+        <div class="metric-card">
+            <h4>Raumkontrolle</h4>
+            <div class="zone-bar">
+                <div class="zone-a" style="width: {{ report.team_metrics.zone_control.team_a }}%">
+                    {{ "%.0f" | format(report.team_metrics.zone_control.team_a) }}%
+                </div>
+                <div class="zone-b" style="width: {{ report.team_metrics.zone_control.team_b }}%">
+                    {{ "%.0f" | format(report.team_metrics.zone_control.team_b) }}%
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="raw-json">
+        <details>
+            <summary>Raw JSON Report</summary>
+            <pre>{{ report | tojson(indent=2) }}</pre>
+        </details>
+    </div>
+</section>
+{% endif %}
+
+{% if job.status == "processing" or job.status == "queued" %}
+<script>
+    // Auto-refresh while processing
+    setTimeout(() => window.location.reload(), 5000);
+</script>
+{% endif %}
+{% endblock %}

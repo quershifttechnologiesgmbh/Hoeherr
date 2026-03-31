@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hoeherr Football Analysis - Training Status Report</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --card: #161b22;
+            --border: #30363d;
+            --text: #c9d1d9;
+            --text-muted: #8b949e;
+            --accent: #58a6ff;
+            --green: #3fb950;
+            --red: #f85149;
+            --orange: #d29922;
+            --purple: #bc8cff;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+            background: var(--bg); color: var(--text); line-height: 1.6;
+        }
+        .container { max-width: 1400px; margin: 0 auto; padding: 24px; }
+
+        /* Header */
+        .header {
+            text-align: center; padding: 40px 20px; margin-bottom: 32px;
+            background: linear-gradient(135deg, #1a1f35 0%, #0d1117 100%);
+            border: 1px solid var(--border); border-radius: 12px;
+        }
+        .header h1 { font-size: 2rem; color: #fff; margin-bottom: 8px; }
+        .header .subtitle { color: var(--text-muted); font-size: 1rem; }
+        .header .badge {
+            display: inline-block; padding: 4px 12px; border-radius: 20px;
+            font-size: 0.8rem; font-weight: 600; margin-top: 12px;
+        }
+        .badge-active { background: rgba(63, 185, 80, 0.15); color: var(--green); border: 1px solid rgba(63, 185, 80, 0.4); }
+        .badge-info { background: rgba(88, 166, 255, 0.15); color: var(--accent); border: 1px solid rgba(88, 166, 255, 0.4); }
+
+        /* Navigation */
+        .nav {
+            display: flex; gap: 8px; margin-bottom: 24px;
+            border-bottom: 1px solid var(--border); padding-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        .nav a {
+            color: var(--text-muted); text-decoration: none; padding: 8px 16px;
+            border-radius: 8px; font-size: 0.9rem; transition: all 0.2s;
+        }
+        .nav a:hover, .nav a.active { background: var(--card); color: var(--accent); }
+
+        /* Cards */
+        .card {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 12px; padding: 24px; margin-bottom: 24px;
+        }
+        .card h2 { font-size: 1.3rem; color: #fff; margin-bottom: 16px;
+                    padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+        .card h3 { font-size: 1.1rem; color: var(--accent); margin: 16px 0 8px; }
+
+        /* Grid layouts */
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; }
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+        @media (max-width: 900px) {
+            .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+        }
+
+        /* Metric boxes */
+        .metric-box {
+            background: rgba(88, 166, 255, 0.05); border: 1px solid var(--border);
+            border-radius: 8px; padding: 16px; text-align: center;
+        }
+        .metric-box .value { font-size: 2rem; font-weight: 700; color: #fff; }
+        .metric-box .label { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
+        .metric-box.good .value { color: var(--green); }
+        .metric-box.warn .value { color: var(--orange); }
+        .metric-box.bad .value { color: var(--red); }
+
+        /* Tables */
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+        th { color: var(--text-muted); font-weight: 600; font-size: 0.8rem;
+             text-transform: uppercase; letter-spacing: 0.5px; }
+        tr:hover { background: rgba(88, 166, 255, 0.05); }
+
+        /* Chart containers */
+        .chart-box { width: 100%; min-height: 350px; }
+
+        /* Code/config blocks */
+        .config-block {
+            background: #0d1117; border: 1px solid var(--border);
+            border-radius: 6px; padding: 16px; font-family: 'SFMono-Regular', monospace;
+            font-size: 0.85rem; overflow-x: auto; white-space: pre;
+        }
+
+        /* Pipeline diagram */
+        .pipeline { display: flex; align-items: center; gap: 0; flex-wrap: wrap; justify-content: center; }
+        .pipeline-step {
+            background: rgba(88, 166, 255, 0.1); border: 1px solid rgba(88, 166, 255, 0.3);
+            border-radius: 8px; padding: 12px 20px; text-align: center;
+            min-width: 140px;
+        }
+        .pipeline-step .step-title { font-weight: 600; color: var(--accent); font-size: 0.9rem; }
+        .pipeline-step .step-detail { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
+        .pipeline-arrow { font-size: 1.5rem; color: var(--text-muted); padding: 0 8px; }
+
+        /* Status indicators */
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+        .status-dot.green { background: var(--green); }
+        .status-dot.orange { background: var(--orange); }
+        .status-dot.red { background: var(--red); }
+
+        /* Sections */
+        section { scroll-margin-top: 20px; }
+
+        /* Experiment comparison */
+        .exp-card {
+            border-left: 3px solid var(--accent); padding-left: 16px;
+            margin-bottom: 16px;
+        }
+        .exp-card.v1 { border-color: #636EFA; }
+        .exp-card.v2 { border-color: #EF553B; }
+        .exp-card.v3 { border-color: #00CC96; }
+        .exp-card.v4 { border-color: #AB63FA; }
+
+        .tag {
+            display: inline-block; padding: 2px 8px; border-radius: 4px;
+            font-size: 0.75rem; font-weight: 600;
+        }
+        .tag-blue { background: rgba(88, 166, 255, 0.15); color: var(--accent); }
+        .tag-green { background: rgba(63, 185, 80, 0.15); color: var(--green); }
+        .tag-orange { background: rgba(210, 153, 34, 0.15); color: var(--orange); }
+        .tag-purple { background: rgba(188, 140, 255, 0.15); color: var(--purple); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <!-- Header -->
+    <div class="header">
+        <h1>Hoeherr Football Analysis</h1>
+        <div class="subtitle">AI-Powered Drone Football Analysis Pipeline - Training Status Report</div>
+        <div>
+            <span class="badge badge-active">Phase: Model Training</span>
+            <span class="badge badge-info">Generated: 2026-03-31</span>
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <div class="nav">
+        <a href="#overview" class="active">Overview</a>
+        <a href="#baseline">Baseline Results</a>
+        <a href="#experiments">Experiments</a>
+        <a href="#training-curves">Training Curves</a>
+        <a href="#per-class">Per-Class Analysis</a>
+        <a href="#sahi">SAHI Analysis</a>
+        <a href="#metrics-engine">Metrics Engine</a>
+        <a href="#pipeline">Pipeline</a>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION: Overview -->
+    <!-- ============================================================ -->
+    <section id="overview">
+        <div class="card">
+            <h2>Project Overview</h2>
+            <p style="margin-bottom: 16px;">
+                End-to-end pipeline for analyzing football matches from DJI Mavic 3 Pro drone footage (5.1K @ 50m altitude).
+                Combines YOLOv8 detection, BoT-SORT tracking, team classification, homography transformation, and comprehensive metrics computation.
+            </p>
+
+            <div class="grid-4" style="margin-bottom: 24px;">
+                <div class="metric-box">
+                    <div class="value">10,800</div>
+                    <div class="label">Training Images</div>
+                </div>
+                <div class="metric-box">
+                    <div class="value">2</div>
+                    <div class="label">Classes (Player, Ball)</div>
+                </div>
+                <div class="metric-box warn">
+                    <div class="value">0.423</div>
+                    <div class="label">Best mAP@50 (v1)</div>
+                </div>
+                <div class="metric-box">
+                    <div class="value">4</div>
+                    <div class="label">A100 GPUs Available</div>
+                </div>
+            </div>
+
+            <h3>Dataset Composition</h3>
+            <table>
+                <thead>
+                    <tr><th>Dataset</th><th>Source</th><th>Resolution</th><th>View</th><th>Train</th><th>Val</th><th>Test</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="status-dot green"></span>SoccerTrack</td>
+                        <td>Drone top-view</td><td>3840x2160</td><td>Top-down</td>
+                        <td>8,640</td><td>1,080</td><td>1,080</td>
+                    </tr>
+                    <tr>
+                        <td><span class="status-dot orange"></span>TeamTrack (soccer_side)</td>
+                        <td>Side-view camera</td><td>6500x1000</td><td>Side panoramic</td>
+                        <td>46 clips</td><td>10 clips</td><td>10 clips</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- SECTION: Baseline Results (v1) -->
+    <!-- ============================================================ -->
+    <section id="baseline">
+        <div class="card">
+            <h2>Baseline Model Results (v1)</h2>
+            <p style="margin-bottom: 16px;">
+                YOLOv8m fine-tuned on SoccerTrack data only. Frozen backbone (first 10 layers), 50 epochs, batch=8.
+            </p>
+
+            <div class="grid-4" style="margin-bottom: 24px;">
+                <div class="metric-box warn">
+                    <div class="value">0.423</div>
+                    <div class="label">mAP@50</div>
+                </div>
+                <div class="metric-box bad">
+                    <div class="value">0.137</div>
+                    <div class="label">mAP@50-95</div>
+                </div>
+                <div class="metric-box">
+                    <div class="value">0.583</div>
+                    <div class="label">Precision</div>
+                </div>
+                <div class="metric-box">
+                    <div class="value">0.462</div>
+                    <div class="label">Recall</div>
+                </div>
+            </div>
+
+            <h3>Per-Class Performance</h3>
+            <div class="grid-2" style="margin-bottom: 24px;">
+                <div class="metric-box">
+                    <div class="value" style="color: var(--green);">0.664</div>
+                    <div class="label">Player mAP@50</div>
+                </div>
+                <div class="metric-box bad">
+                    <div class="value">0.059</div>
+                    <div class="label">Ball mAP@50</div>
+                </div>
+            </div>
+
+            <h3>Training Configuration</h3>
+            <div class="config-block">Model:       YOLOv8m (25.9M params)
+Epochs:      50 (patience: 10)
+Batch size:  8
+Image size:  640px
+Optimizer:   AdamW (lr=0.001, cosine annealing)
+Freeze:      First 10 layers (backbone)
+Augmentation: mosaic=1.0, mixup=0.1, degrees=180, HSV shifts
+Workers:     4
+GPU:         NVIDIA A100-SXM4-40GB
+Train time:  ~2.3 hours (8,428 seconds)</div>
+
+            <h3>Key Observations</h3>
+            <ul style="margin-left: 20px; margin-top: 8px;">
+                <li><strong>Player detection is reasonable</strong> (0.664 mAP@50) but has room for improvement</li>
+                <li><strong>Ball detection is very poor</strong> (0.059 mAP@50) - balls are tiny (~6-7px) at drone altitude</li>
+                <li>Training converged around epoch 40 with no significant improvement after</li>
+                <li>Frozen backbone may limit feature adaptation to drone perspective</li>
+                <li>Only SoccerTrack data used - limited diversity</li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- SECTION: Experiments -->
+    <!-- ============================================================ -->
+    <section id="experiments">
+        <div class="card">
+            <h2>Training Experiments</h2>
+            <p style="margin-bottom: 16px;">
+                Four improvement strategies being evaluated to boost detection performance,
+                especially for the challenging ball class.
+            </p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Experiment</th><th>GPU</th><th>Model</th><th>Freeze</th>
+                        <th>Data</th><th>Key Change</th><th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="tag tag-blue">v1 Baseline</span></td>
+                        <td>1</td><td>YOLOv8m</td><td>10 layers</td>
+                        <td>SoccerTrack only</td><td>Original baseline</td>
+                        <td><span class="status-dot green"></span>Complete</td>
+                    </tr>
+                    <tr>
+                        <td><span class="tag tag-orange">v2 Combined</span></td>
+                        <td>1</td><td>YOLOv8m</td><td>10 layers</td>
+                        <td>SoccerTrack + TeamTrack</td><td>+TeamTrack data diversity</td>
+                        <td><span class="status-dot orange"></span>Ready</td>
+                    </tr>
+                    <tr>
+                        <td><span class="tag tag-green">v3 Unfrozen</span></td>
+                        <td>2</td><td>YOLOv8m</td><td>0 layers</td>
+                        <td>SoccerTrack + TeamTrack</td><td>Unfrozen backbone</td>
+                        <td><span class="status-dot orange"></span>Ready</td>
+                    </tr>
+                    <tr>
+                        <td><span class="tag tag-purple">v4 YOLOv8x</span></td>
+                        <td>3</td><td>YOLOv8x</td><td>0 layers</td>
+                        <td>SoccerTrack + TeamTrack</td><td>Larger model + unfrozen</td>
+                        <td><span class="status-dot orange"></span>Ready</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div style="margin-top: 24px;">
+                <div class="exp-card v1">
+                    <strong>v1 Baseline</strong> - Reference point. SoccerTrack only, frozen backbone.
+                    Achieved mAP@50=0.423 but poor ball detection (0.059).
+                </div>
+                <div class="exp-card v2">
+                    <strong>v2 Combined Data</strong> - Same architecture as v1 but trained on merged
+                    SoccerTrack + TeamTrack soccer_side data. Tests if additional data diversity improves generalization.
+                </div>
+                <div class="exp-card v3">
+                    <strong>v3 Unfrozen Backbone</strong> - Fully trainable backbone (freeze=0) allows the
+                    model to adapt COCO-pretrained features to drone/side-view perspective. Higher risk of
+                    overfitting but potentially much better feature extraction.
+                </div>
+                <div class="exp-card v4">
+                    <strong>v4 YOLOv8x</strong> - Extra-large model (~68M params vs 25.9M) with unfrozen backbone.
+                    Maximum capacity for learning fine-grained features needed for small ball detection.
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- SECTION: Training Curves -->
+    <!-- ============================================================ -->
+    <section id="training-curves">
+        <div class="card">
+            <h2>Training Curves (v1 Baseline)</h2>
+            <div class="grid-2">
+                <div>
+                    <h3>Loss Curves</h3>
+                    <div id="chart-loss" class="chart-box"></div>
+                </div>
+                <div>
+                    <h3>Metrics Curves</h3>
+                    <div id="chart-metrics" class="chart-box"></div>
+                </div>
+            </div>
+            <div style="margin-top: 24px;">
+                <h3>Learning Rate Schedule</h3>
+                <div id="chart-lr" class="chart-box" style="min-height: 250px;"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- SECTION: Per-Class Analysis -->
+    <!-- ============================================================ -->
+    <section id="per-class">
+        <div class="card">
+            <h2>Per-Class Detection Analysis</h2>
+            <div id="chart-perclass" class="chart-box"></div>
+
+            <div class="grid-2" style="margin-top: 24px;">
+                <div>
+                    <h3>Player Detection Challenges</h3>
+                    <ul style="margin-left: 20px;">
+                        <li>Players at 50m altitude appear as 15-40px blobs</li>
+                        <li>Occlusion during set pieces and tight formations</li>
+                        <li>Drone motion blur at edges of frame</li>
+                        <li>Shadow confusion (long shadows at low sun angles)</li>
+                    </ul>
+                </div>
+                <div>
+                    <h3>Ball Detection Challenges</h3>
+                    <ul style="margin-left: 20px;">
+                        <li>Ball is only ~6-7px at drone altitude (extremely small)</li>
+                        <li>Often occluded by players' bodies</li>
+                        <li>Motion blur when kicked at high speed</li>
+                        <li>Visually similar to field markings/debris</li>
+                        <li>SAHI sliced inference may help significantly</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- SECTION: SAHI Analysis -->
+    <!-- ============================================================ -->
+    <section id="sahi">
+        <div class="card">
+            <h2>SAHI (Sliced Aided Hyper Inference)</h2>
+            <p style="margin-bottom: 16px;">
+                SAHI addresses tiny object detection by slicing high-resolution images into overlapping patches,
+                running detection on each patch, then merging results with NMS post-processing.
+            </p>
+
+            <div class="grid-2" style="margin-bottom: 24px;">
+                <div>
+                    <h3>How SAHI Works</h3>
+                    <div class="config-block">Input: 3840x2160 frame (or 6500x1000 panoramic)
+
+Step 1: Slice into 640x640 patches
+        with 20% overlap (128px)
+
+Step 2: Run YOLOv8 on each patch
+        (ball appears ~40-50px in patch = detectable)
+
+Step 3: Map detections back to
+        original coordinates
+
+Step 4: NMS to remove duplicates
+        at patch boundaries
+
+Output: Combined detections</div>
+                </div>
+                <div>
+                    <h3>Expected Impact</h3>
+                    <ul style="margin-left: 20px; margin-bottom: 16px;">
+                        <li><strong>Ball detection:</strong> Major improvement expected - ball occupies ~1% of 640px patch vs ~0.1% of full frame</li>
+                        <li><strong>Player detection:</strong> Moderate improvement - players are already detectable at 640px but edges improve</li>
+                        <li><strong>Speed trade-off:</strong> ~6-12x slower (number of patches) but can be parallelized</li>
+                    </ul>
+                    <h3>Configuration</h3>
+                    <div class="config-block">slice_height: 640
+slice_width:  640
+overlap:      0.2 (20%)
+postprocess:  NMS (threshold=0.5)
+model_type:   yolov8</div>
+                </div>
+            </div>
+
+            <div id="chart-sahi" class="chart-box"></div>
+            <p style="margin-top: 8px; color: var(--text-muted); font-size: 0.85rem;">
+                SAHI comparison chart will populate after running <code>scripts/evaluate_sahi.py</code>
+            </p>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- SECTION: Metrics Engine -->
+    <!-- ============================================================ -->
+    <section id="metrics-engine">
+        <div class="card">
+            <h2>Metrics Engine Capabilities</h2>
+            <p style="margin-bottom: 16px;">
+                The analysis pipeline computes three categories of metrics from tracked player positions
+                after homography transformation to real-world pitch coordinates (meters).
+            </p>
+
+            <div class="grid-3">
+                <div>
+                    <h3 style="color: var(--green);">Physical Metrics</h3>
+                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px;">
+                        Movement and athletic performance
+                    </p>
+                    <table>
+                        <tr><td>Total Distance</td><td>km per player</td></tr>
+                        <tr><td>Average Speed</td><td>m/s</td></tr>
+                        <tr><td>Max Speed</td><td>m/s</td></tr>
+                        <tr><td>Sprint Count</td><td>>25.1 km/h zones</td></tr>
+                        <tr><td>Speed Zones</td><td>5 categories</td></tr>
+                        <tr><td>Accelerations</td><td>count + intensity</td></tr>
+                    </table>
+
+                    <h3 style="color: var(--green); margin-top: 16px;">Speed Zones</h3>
+                    <div class="config-block" style="font-size: 0.8rem;">Walking:    &lt; 7 km/h
+Jogging:    7-14 km/h
+Running:    14-19.8 km/h
+High Speed: 19.8-25.1 km/h
+Sprinting:  &gt; 25.1 km/h</div>
+                </div>
+                <div>
+                    <h3 style="color: var(--accent);">Tactical Metrics</h3>
+                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px;">
+                        Team structure and spatial analysis
+                    </p>
+                    <table>
+                        <tr><td>Formation</td><td>Auto-detected (KMeans)</td></tr>
+                        <tr><td>Compactness</td><td>Convex hull area</td></tr>
+                        <tr><td>Team Width</td><td>Lateral spread (m)</td></tr>
+                        <tr><td>Team Depth</td><td>Longitudinal spread (m)</td></tr>
+                        <tr><td>Zone Control</td><td>Voronoi tessellation (%)</td></tr>
+                    </table>
+
+                    <h3 style="color: var(--accent); margin-top: 16px;">Supported Formations</h3>
+                    <div class="config-block" style="font-size: 0.8rem;">4-3-3   4-4-2   3-5-2
+4-2-3-1 4-1-4-1 3-4-3</div>
+                </div>
+                <div>
+                    <h3 style="color: var(--purple);">Individual Metrics</h3>
+                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px;">
+                        Per-player analysis and visualization
+                    </p>
+                    <table>
+                        <tr><td>Heatmap</td><td>Gaussian smoothed</td></tr>
+                        <tr><td>Playing Time</td><td>Minutes + %</td></tr>
+                        <tr><td>Avg Position</td><td>Mean (x, y) meters</td></tr>
+                    </table>
+
+                    <h3 style="color: var(--purple); margin-top: 16px;">Heatmap Config</h3>
+                    <div class="config-block" style="font-size: 0.8rem;">Grid: 210 x 136 cells
+Resolution: 0.5m per cell
+Smoothing: Gaussian (sigma=2)
+Pitch: 105m x 68m (FIFA)</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- SECTION: Pipeline -->
+    <!-- ============================================================ -->
+    <section id="pipeline">
+        <div class="card">
+            <h2>Full Pipeline Architecture</h2>
+            <div class="pipeline" style="margin: 24px 0;">
+                <div class="pipeline-step">
+                    <div class="step-title">Video Input</div>
+                    <div class="step-detail">DJI Mavic 3 Pro<br>5.1K @ 50m</div>
+                </div>
+                <div class="pipeline-arrow">&rarr;</div>
+                <div class="pipeline-step">
+                    <div class="step-title">Detection</div>
+                    <div class="step-detail">YOLOv8 + SAHI<br>Player & Ball</div>
+                </div>
+                <div class="pipeline-arrow">&rarr;</div>
+                <div class="pipeline-step">
+                    <div class="step-title">Tracking</div>
+                    <div class="step-detail">BoT-SORT<br>Multi-Object</div>
+                </div>
+                <div class="pipeline-arrow">&rarr;</div>
+                <div class="pipeline-step">
+                    <div class="step-title">Team ID</div>
+                    <div class="step-detail">KMeans<br>Jersey Colors</div>
+                </div>
+                <div class="pipeline-arrow">&rarr;</div>
+                <div class="pipeline-step">
+                    <div class="step-title">Homography</div>
+                    <div class="step-detail">Pixel &rarr; Meters<br>RANSAC</div>
+                </div>
+                <div class="pipeline-arrow">&rarr;</div>
+                <div class="pipeline-step">
+                    <div class="step-title">Metrics</div>
+                    <div class="step-detail">Physical/Tactical<br>Individual</div>
+                </div>
+            </div>
+
+            <h3>Technology Stack</h3>
+            <table>
+                <thead>
+                    <tr><th>Component</th><th>Technology</th><th>Purpose</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Detection</td><td>YOLOv8 (Ultralytics) + SAHI</td><td>Player & ball localization</td></tr>
+                    <tr><td>Tracking</td><td>BoT-SORT (via Ultralytics)</td><td>Multi-object tracking with camera motion compensation</td></tr>
+                    <tr><td>Team Classification</td><td>KMeans (scikit-learn)</td><td>Unsupervised jersey color clustering</td></tr>
+                    <tr><td>Homography</td><td>OpenCV (Hough + RANSAC)</td><td>Pitch line detection & coordinate transform</td></tr>
+                    <tr><td>Metrics</td><td>NumPy / SciPy / Shapely</td><td>Physical, tactical, individual analysis</td></tr>
+                    <tr><td>API</td><td>FastAPI + Jinja2</td><td>Web interface for video upload & results</td></tr>
+                    <tr><td>Visualization</td><td>Plotly + Matplotlib</td><td>Interactive charts & heatmaps</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- SECTION: Next Steps -->
+    <!-- ============================================================ -->
+    <section id="next-steps">
+        <div class="card">
+            <h2>Improvement Roadmap</h2>
+            <table>
+                <thead>
+                    <tr><th>Priority</th><th>Action</th><th>Expected Impact</th><th>Status</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>1</td>
+                        <td>Merge TeamTrack soccer_side data</td>
+                        <td>+data diversity, better generalization</td>
+                        <td><span class="tag tag-green">Script Ready</span></td>
+                    </tr>
+                    <tr>
+                        <td>2</td>
+                        <td>Unfreeze backbone (v3)</td>
+                        <td>Better feature adaptation to drone view</td>
+                        <td><span class="tag tag-green">Script Ready</span></td>
+                    </tr>
+                    <tr>
+                        <td>3</td>
+                        <td>Scale to YOLOv8x (v4)</td>
+                        <td>More capacity for small object features</td>
+                        <td><span class="tag tag-green">Script Ready</span></td>
+                    </tr>
+                    <tr>
+                        <td>4</td>
+                        <td>SAHI sliced inference</td>
+                        <td>Major ball detection improvement</td>
+                        <td><span class="tag tag-green">Script Ready</span></td>
+                    </tr>
+                    <tr>
+                        <td>5</td>
+                        <td>Evaluate & compare all experiments</td>
+                        <td>Select best model for production</td>
+                        <td><span class="tag tag-orange">Pending</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+</div>
+
+<!-- ============================================================ -->
+<!-- Plotly Charts (embedded data from v1 training) -->
+<!-- ============================================================ -->
+<script>
+// v1 Training data
+const epochs = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50];
+const trainBoxLoss = [3.0355,2.9043,2.858,2.830,2.811,2.786,2.756,2.748,2.747,2.722,2.716,2.702,2.677,2.652,2.620,2.617,2.587,2.574,2.548,2.547,2.538,2.530,2.516,2.516,2.508,2.496,2.495,2.480,2.472,2.476,2.447,2.440,2.443,2.439,2.430,2.423,2.422,2.417,2.419,2.403,2.179,2.186,2.168,2.161,2.151,2.161,2.153,2.163,2.152,2.154];
+const valBoxLoss = [3.025,2.867,2.917,2.835,2.857,2.979,2.773,3.033,2.845,2.879,2.858,2.868,2.778,2.898,2.831,2.813,2.823,2.789,2.751,2.706,2.752,2.757,2.716,2.693,2.664,2.677,2.643,2.690,2.642,2.684,2.655,2.636,2.644,2.634,2.647,2.600,2.619,2.636,2.600,2.630,2.596,2.589,2.585,2.604,2.599,2.610,2.591,2.593,2.602,2.602];
+const mAP50 = [0.268,0.321,0.324,0.354,0.357,0.326,0.370,0.306,0.359,0.349,0.347,0.355,0.374,0.343,0.362,0.361,0.358,0.372,0.385,0.395,0.384,0.385,0.391,0.394,0.405,0.395,0.410,0.398,0.407,0.404,0.406,0.410,0.406,0.409,0.407,0.411,0.414,0.410,0.417,0.408,0.420,0.420,0.423,0.419,0.419,0.414,0.421,0.421,0.419,0.419];
+const mAP5095 = [0.071,0.091,0.089,0.097,0.098,0.084,0.107,0.077,0.099,0.093,0.095,0.095,0.109,0.091,0.100,0.102,0.100,0.107,0.111,0.119,0.110,0.111,0.116,0.120,0.125,0.120,0.128,0.121,0.129,0.122,0.126,0.129,0.127,0.130,0.127,0.134,0.132,0.129,0.135,0.129,0.136,0.137,0.138,0.135,0.135,0.134,0.137,0.136,0.135,0.135];
+const precision = [0.832,0.353,0.858,0.871,0.469,0.430,0.481,0.418,0.450,0.357,0.524,0.475,0.588,0.483,0.591,0.529,0.620,0.513,0.546,0.549,0.516,0.536,0.552,0.545,0.586,0.528,0.589,0.524,0.563,0.554,0.560,0.560,0.561,0.575,0.568,0.560,0.583,0.554,0.554,0.554,0.572,0.569,0.592,0.586,0.550,0.578,0.574,0.582,0.571,0.583];
+const recall = [0.332,0.363,0.360,0.377,0.383,0.353,0.391,0.341,0.389,0.369,0.387,0.374,0.392,0.389,0.393,0.395,0.386,0.420,0.416,0.407,0.429,0.432,0.430,0.438,0.435,0.427,0.440,0.438,0.444,0.438,0.443,0.451,0.447,0.448,0.446,0.453,0.453,0.457,0.458,0.446,0.461,0.461,0.457,0.459,0.461,0.454,0.457,0.462,0.461,0.461];
+const lr = [0.000333,0.000666,0.000996,0.000991,0.000984,0.000976,0.000965,0.000953,0.000939,0.000923,0.000905,0.000886,0.000866,0.000844,0.000821,0.000796,0.000770,0.000743,0.000716,0.000687,0.000658,0.000628,0.000598,0.000567,0.000536,0.000505,0.000474,0.000443,0.000412,0.000382,0.000352,0.000323,0.000294,0.000267,0.000240,0.000214,0.000189,0.000166,0.000144,0.000124,0.000105,0.0000871,0.0000712,0.0000571,0.0000448,0.0000342,0.0000256,0.0000188,0.0000139,0.0000110];
+
+const plotConfig = {responsive: true, displayModeBar: false};
+const darkLayout = {
+    paper_bgcolor: 'rgba(0,0,0,0)',
+    plot_bgcolor: 'rgba(0,0,0,0)',
+    font: {color: '#c9d1d9'},
+    xaxis: {gridcolor: '#30363d', zerolinecolor: '#30363d'},
+    yaxis: {gridcolor: '#30363d', zerolinecolor: '#30363d'},
+    margin: {l: 50, r: 20, t: 30, b: 40},
+};
+
+// Loss curves
+Plotly.newPlot('chart-loss', [
+    {x: epochs, y: trainBoxLoss, name: 'Train Box Loss', line: {color: '#636EFA'}},
+    {x: epochs, y: valBoxLoss, name: 'Val Box Loss', line: {color: '#EF553B'}},
+], {...darkLayout, xaxis: {...darkLayout.xaxis, title: 'Epoch'}, yaxis: {...darkLayout.yaxis, title: 'Loss'}, legend: {x: 0.7, y: 0.95}}, plotConfig);
+
+// Metrics curves
+Plotly.newPlot('chart-metrics', [
+    {x: epochs, y: mAP50, name: 'mAP@50', line: {color: '#00CC96'}},
+    {x: epochs, y: mAP5095, name: 'mAP@50-95', line: {color: '#AB63FA'}},
+    {x: epochs, y: precision, name: 'Precision', line: {color: '#FFA15A', dash: 'dot'}},
+    {x: epochs, y: recall, name: 'Recall', line: {color: '#FF6692', dash: 'dot'}},
+], {...darkLayout, xaxis: {...darkLayout.xaxis, title: 'Epoch'}, yaxis: {...darkLayout.yaxis, title: 'Score'}, legend: {x: 0.6, y: 0.3}}, plotConfig);
+
+// LR schedule
+Plotly.newPlot('chart-lr', [
+    {x: epochs, y: lr, name: 'Learning Rate', line: {color: '#58a6ff'}, fill: 'tozeroy', fillcolor: 'rgba(88,166,255,0.1)'},
+], {...darkLayout, xaxis: {...darkLayout.xaxis, title: 'Epoch'}, yaxis: {...darkLayout.yaxis, title: 'LR'}, height: 250}, plotConfig);
+
+// Per-class bar chart
+Plotly.newPlot('chart-perclass', [
+    {
+        x: ['Player', 'Ball', 'Overall'],
+        y: [0.664, 0.059, 0.423],
+        type: 'bar',
+        marker: {color: ['#3fb950', '#f85149', '#58a6ff']},
+        text: ['0.664', '0.059', '0.423'],
+        textposition: 'auto',
+        textfont: {color: '#fff'},
+    }
+], {...darkLayout, xaxis: {...darkLayout.xaxis, title: 'Class'}, yaxis: {...darkLayout.yaxis, title: 'mAP@50', range: [0, 1]}}, plotConfig);
+
+// SAHI placeholder
+Plotly.newPlot('chart-sahi', [
+    {
+        x: ['Player AP@50', 'Ball AP@50', 'mAP@50'],
+        y: [0.664, 0.059, 0.423],
+        name: 'Standard',
+        type: 'bar',
+        marker: {color: '#636EFA'},
+    },
+    {
+        x: ['Player AP@50', 'Ball AP@50', 'mAP@50'],
+        y: [null, null, null],
+        name: 'SAHI (pending)',
+        type: 'bar',
+        marker: {color: '#EF553B'},
+    },
+], {...darkLayout, barmode: 'group', xaxis: {...darkLayout.xaxis}, yaxis: {...darkLayout.yaxis, title: 'Score', range: [0, 1]}, legend: {x: 0.7, y: 0.95}}, plotConfig);
+</script>
+
+</body>
+</html>

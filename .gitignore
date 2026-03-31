@@ -1,0 +1,39 @@
+# Data files (too large for git)
+data/raw/
+data/processed/images/
+data/processed/labels/
+
+# Model weights
+*.pt
+models/detection/*.pt
+models/homography/*.pt
+
+# Training runs
+runs/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# API results
+api/results/
+
+# Environment
+.env
+*.log

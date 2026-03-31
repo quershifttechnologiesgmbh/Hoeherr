@@ -1,0 +1,11 @@
+path: ../data/processed
+train: images/train
+val: images/val
+test: images/test
+
+nc: 4
+names:
+  0: player
+  1: goalkeeper
+  2: referee
+  3: ball
