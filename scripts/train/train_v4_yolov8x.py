@@ -7,7 +7,10 @@ Tests whether the larger model capacity improves detection.
 """
 import os
 import shutil
-os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+import torch
+
+# GPU selection: set CUDA_VISIBLE_DEVICES=3 in environment before running this script
+# e.g.: CUDA_VISIBLE_DEVICES=3 python scripts/train/train_v4_yolov8x.py
 
 from ultralytics import YOLO
 
@@ -20,7 +23,7 @@ def main():
         epochs=50,
         imgsz=640,
         batch=8,
-        device=0,
+        device=torch.device("cuda:0"),
         patience=10,
         optimizer="AdamW",
         lr0=0.001,
@@ -60,7 +63,7 @@ def main():
             split="test",
             imgsz=640,
             batch=8,
-            device=0,
+            device=torch.device("cuda:0"),
             verbose=True,
         )
         print(f"[v4_yolov8x] Test mAP50: {val_results.box.map50:.4f}")

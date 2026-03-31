@@ -128,12 +128,17 @@ def compute_ap50(predictions, ground_truths, target_class, iou_threshold=0.5):
     return float(ap), int(cum_tp[-1]) if len(cum_tp) > 0 else 0, n_gt
 
 
-def run_standard_inference(model, images_dir, conf=0.25, imgsz=640):
+def run_standard_inference(model, images_dir, conf=0.25, imgsz=640, max_images=0):
     """Run standard YOLOv8 inference on all images."""
     predictions = []
     image_files = sorted(images_dir.glob("*.jpg"))
+    if max_images > 0:
+        image_files = image_files[:max_images]
 
-    for img_path in image_files:
+    for i, img_path in enumerate(image_files):
+        if (i + 1) % 50 == 0:
+            print(f"  Standard inference: {i+1}/{len(image_files)}")
+
         results = model(str(img_path), conf=conf, iou=0.45, imgsz=imgsz, verbose=False)[0]
         if results.boxes is not None and len(results.boxes) > 0:
             img_h, img_w = results.orig_shape
@@ -151,7 +156,7 @@ def run_standard_inference(model, images_dir, conf=0.25, imgsz=640):
 
 
 def run_sahi_inference(model_path, images_dir, device, conf=0.25,
-                       slice_size=640, overlap=0.2):
+                       slice_size=640, overlap=0.2, max_images=0):
     """Run SAHI sliced inference on all images."""
     from sahi import AutoDetectionModel
     from sahi.predict import get_sliced_prediction
@@ -165,8 +170,12 @@ def run_sahi_inference(model_path, images_dir, device, conf=0.25,
 
     predictions = []
     image_files = sorted(images_dir.glob("*.jpg"))
+    if max_images > 0:
+        image_files = image_files[:max_images]
 
-    for img_path in image_files:
+    for i, img_path in enumerate(image_files):
+        if (i + 1) % 50 == 0:
+            print(f"  SAHI inference: {i+1}/{len(image_files)}")
         result = get_sliced_prediction(
             image=str(img_path),
             detection_model=detection_model,
@@ -198,6 +207,8 @@ def main():
     parser.add_argument("--conf", type=float, default=0.25, help="Confidence threshold")
     parser.add_argument("--slice-size", type=int, default=640, help="SAHI slice size")
     parser.add_argument("--overlap", type=float, default=0.2, help="SAHI overlap ratio")
+    parser.add_argument("--max-images", type=int, default=0,
+                        help="Max images to evaluate (0=all)")
     args = parser.parse_args()
 
     # Find best model
@@ -249,6 +260,13 @@ def main():
                     pixel_boxes.append((cls, x1, y1, x2, y2))
                 gt_pixel[stem] = pixel_boxes
 
+    # If max_images set, filter GT to match the subset that will be processed
+    if args.max_images > 0:
+        subset_stems = set(
+            p.stem for p in sorted(val_images.glob("*.jpg"))[:args.max_images]
+        )
+        gt_pixel = {k: v for k, v in gt_pixel.items() if k in subset_stems}
+
     n_val = len(gt_pixel)
     n_ball_gt = sum(1 for boxes in gt_pixel.values() for cls, *_ in boxes if cls == 1)
     n_player_gt = sum(1 for boxes in gt_pixel.values() for cls, *_ in boxes if cls == 0)
@@ -262,7 +280,8 @@ def main():
     from ultralytics import YOLO
     model = YOLO(str(model_path))
 
-    std_preds = run_standard_inference(model, val_images, conf=args.conf)
+    std_preds = run_standard_inference(model, val_images, conf=args.conf,
+                                       max_images=args.max_images)
 
     std_ball_ap, std_ball_tp, std_ball_gt = compute_ap50(std_preds, gt_pixel, target_class=1)
     std_player_ap, std_player_tp, std_player_gt = compute_ap50(std_preds, gt_pixel, target_class=0)
@@ -279,7 +298,8 @@ def main():
 
     sahi_preds = run_sahi_inference(
         model_path, val_images, args.device,
-        conf=args.conf, slice_size=args.slice_size, overlap=args.overlap
+        conf=args.conf, slice_size=args.slice_size, overlap=args.overlap,
+        max_images=args.max_images
     )
 
     sahi_ball_ap, sahi_ball_tp, sahi_ball_gt = compute_ap50(sahi_preds, gt_pixel, target_class=1)
